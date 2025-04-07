@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>魔法门语音挑战</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #2c3e50;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #door {
+            width: 800px;
+            transition: all 2s ease;
+            margin: 20px;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 20px;
+        }
+
+        #hint {
+            font-size: 24px;
+            margin: 20px;
+            text-align: center;
+        }
+
+        #status {
+            font-size: 18px;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <img id="door" src="close.png" alt="魔法门">
+    <div id="hint">点击按钮说出暗号</div>
+    <button id="startBtn">说出暗号</button>
+    <div id="status"></div>
+
+    <script>
+        const challenges = [
+            { 
+                question: "天王盖地虎",
+                answer: "小鸡炖蘑菇",
+                hint: "说出暗号：天王盖地虎"
+            },
+            {
+                question: "等闲识得东风面",
+                answer: "万紫千红总是春",
+                hint: "说出暗号：等闲识得东风面"
+            },
+            {
+                question: "长沙市立信中学校训",
+                answer: "琴谱",
+                hint: "说出校训：长沙市立信中学校训"
+            },
+            {
+                question: "恭喜你前面三次都答对了，请说出终极暗号吧。",
+                answer: "芝麻开门",
+                hint: "终极暗号：说出魔法咒语"
+            }
+        ];
+
+        let currentChallenge = 0;
+        const door = document.getElementById('door');
+        const hint = document.getElementById('hint');
+        const status = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
+
+        // 初始化语音识别
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'zh-CN';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onresult = (event) => {
+                const result = event.results[0][0].transcript.trim();
+                checkAnswer(result);
+            };
+
+            recognition.onerror = () => {
+                status.textContent = '语音识别错误，请重试';
+            };
+
+            startBtn.addEventListener('click', () => {
+                status.textContent = '正在聆听...';
+                recognition.start();
+                hint.textContent = challenges[currentChallenge].hint;
+            });
+        } else {
+            status.textContent = '浏览器不支持语音识别，请使用最新版Chrome';
+        }
+
+        function checkAnswer(answer) {
+            const correct = challenges[currentChallenge].answer;
+            // 修改为包含检测
+            if (answer.includes(correct)) {  // 主要修改点
+                status.textContent = '暗号正确！';
+                currentChallenge++;
+                
+                if (currentChallenge >= challenges.length) {
+                    openDoor();
+                } else {
+                    setTimeout(() => {
+                        hint.textContent = challenges[currentChallenge].hint;
+                        status.textContent = '';
+                    }, 1500);
+                }
+            } else {
+                status.textContent = '暗号错误，请重试！';
+            }
+        }
+
+        function openDoor() {
+            door.style.transform = 'rotateY(180deg)';
+            hint.textContent = '🎉 魔法门已开启！🎉';
+            startBtn.style.display = 'none';
+            status.textContent = '';
+            // 实际使用时需要替换开门图片
+            door.src = 'open.png';
+        }
+    </script>
+</body>
+</html>

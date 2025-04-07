@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>语音指令测试</h2>
+    <button id="startBtn" onclick="startRecording()">点击开始说话</button>
+    <button id="stopBtn" onclick="stopRecording()" disabled>点击停止录音</button>
+    <p id="result">等待指令...</p>
+
+    <script>
+        let recognition;
+        let finalTranscript = "";
+        let interimTranscript = "";
+
+        function startRecording() {
+            finalTranscript = "";
+            interimTranscript = "";
+            document.getElementById("result").innerHTML = "等待指令...";
+            
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'zh-CN';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            document.getElementById("startBtn").disabled = true;
+            document.getElementById("stopBtn").disabled = false;
+
+            recognition.onresult = (event) => {
+                interimTranscript = "";
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        // 关键修复：智能添加标点（原句无标点才加句号）
+                        const hasPunctuation = /[。.？！!?]$/.test(transcript);
+                        finalTranscript += hasPunctuation ? transcript : transcript + "。";
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                let displayText = finalTranscript;
+                if (interimTranscript) {
+                    displayText += `<span style="color:gray">${interimTranscript}</span>`;
+                }
+                document.getElementById("result").innerHTML = 
+                    `识别内容：<strong>${displayText}</strong>`;
+            };
+
+            recognition.onend = () => {
+                document.getElementById("startBtn").disabled = false;
+                document.getElementById("stopBtn").disabled = true;
+            };
+
+            recognition.start();
+        }
+
+        function stopRecording() {
+            if (recognition) {
+                recognition.stop();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>机器人语音大冒险</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial;
+        }
+        #gameArea {
+            width: 1200px;
+            height: 600px;
+            margin: 20px auto;
+            border: 3px solid #333;
+            position: relative;
+            background: url(background.jpg) 100% 100%;
+			background-size:cover;
+        }
+        #player {
+	width: 100px;
+	position: absolute;
+	left: 644px;
+	top: 462px;
+	transition: all 0.3s;  /* 添加平滑过渡效果 */
+        }
+    </style>
+</head>
+<body>
+    <h1>机器人语音大冒险</h1>
+    <button id="startBtn">开始语音控制</button>
+    <p id="status">状态：等待开始</p>
+    <div id="gameArea">
+        <img id="player" src="robot.png" alt="游戏角色">
+    </div>
+
+    <script>
+        // ========== 学生可修改区域 ==========
+        const COMMANDS = {
+		// 移动指令
+		'左': moveLeft,
+		'右': moveRight,
+		
+		// 变形指令
+		'变大': enlarge,
+		'变小': shrink,
+		'隐身': hide,
+		'现身': show,
+		
+		// 其他指令
+		'攻击': doAttack,
+		'跳': doJump
+	}
+
+
+        // 新增变形函数
+        function enlarge() {
+            const player = document.getElementById('player')
+            const currentWidth = parseInt(player.style.width) || 100
+            player.style.width = (currentWidth * 1.2) + 'px'
+        }
+
+        function shrink() {
+            const player = document.getElementById('player')
+            const currentWidth = parseInt(player.style.width) || 100
+            player.style.width = (currentWidth * 0.8) + 'px'
+        }
+
+        function hide() {
+            document.getElementById('player').style.opacity = '0'
+        }
+
+        function show() {
+            document.getElementById('player').style.opacity = '1'
+        }
+
+        // 原有移动函数
+       // 修复后的移动函数
+		function moveLeft() {
+			const player = document.getElementById('player')
+			const currentLeft = parseInt(player.style.left) || 644 // 初始值处理
+			if(currentLeft > 50) { // 限制左边界
+				player.style.left = (currentLeft - 50) + 'px'
+			}
+		}
+		
+		function moveRight() {
+			const player = document.getElementById('player')
+			const currentLeft = parseInt(player.style.left) || 644
+			if(currentLeft < 1150) { // 限制右边界（600px区域-20px留空）
+				player.style.left = (currentLeft + 50) + 'px'
+			}
+		}
+
+        function doAttack() {
+            alert('biu~biu~biu~')
+        }
+
+        function doJump() {
+            const player = document.getElementById('player')
+            player.style.transition = 'top 0.3s'
+            player.style.top = '300px'
+            setTimeout(() => {
+                player.style.top = '462px'
+            }, 300)
+        }
+        // ========== 修改区域结束 ==========
+
+        // 核心语音识别逻辑（保持不变）
+        let recognition
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert('请使用Chrome/Edge浏览器！')
+                return
+            }
+
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)()
+            recognition.lang = 'zh-CN'
+            recognition.continuous = true
+
+            recognition.onresult = e => {
+                const transcript = e.results[e.results.length-1][0].transcript.trim()
+                document.getElementById('status').textContent = '识别到指令：' + transcript
+                
+                Object.keys(COMMANDS).forEach(cmd => {
+                    if(transcript.includes(cmd)) COMMANDS[cmd]()
+                })
+            }
+
+            recognition.start()
+            document.getElementById('status').textContent = '正在监听...'
+        })
+    </script>
+</body>
+</html>

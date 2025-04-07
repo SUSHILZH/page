@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- 引入 annyang 库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/annyang/2.6.1/annyang.min.js"></script>
+</head>
+<body>
+    <h2>离线语音指令测试</h2>
+    <button id="startBtn">点击开始监听</button>
+    <p id="result">等待指令...</p>
+
+    <script>
+        // 初始化语音指令库
+        if (annyang) {
+            // 设置中文识别
+            annyang.setLanguage('zh-CN');
+
+            // 定义语音指令集
+            const commands = {
+                // 基础指令
+                '打开灯': () => showResult('灯已打开'),
+                '关闭灯': () => showResult('灯已关闭'),
+                '播放音乐': () => showResult('开始播放《孤勇者》'),
+                
+                // 带参数的指令
+                '音量调到 (*value)%': (value) => {
+                    showResult(`音量已调整为 ${value}%`);
+                },
+                
+                // 模式切换指令
+                '切换为学习模式': () => {
+                    document.body.style.backgroundColor = '#F0F8FF';
+                    showResult('已进入专注学习环境');
+                }
+            };
+
+            // 注册指令
+            annyang.addCommands(commands);
+
+            // 界面控制
+            const startBtn = document.getElementById('startBtn');
+            let isListening = false;
+
+            startBtn.addEventListener('click', () => {
+                if (!isListening) {
+                    annyang.start({
+                        autoRestart: true,  // 自动重启监听
+                        continuous: false   // 单次识别模式
+                    });
+                    startBtn.textContent = '监听中...点击停止';
+                    isListening = true;
+                } else {
+                    annyang.abort();
+                    startBtn.textContent = '点击开始监听';
+                    isListening = false;
+                }
+            });
+
+            // 识别结果反馈
+            function showResult(text) {
+                document.getElementById('result').innerHTML = 
+                    `<strong>${text}</strong>（${new Date().toLocaleTimeString()}）`;
+            }
+
+            // 错误处理
+            annyang.addCallback('error', (err) => {
+                console.error('识别错误:', err);
+                showResult('指令识别失败，请重试');
+            });
+            
+            // 权限处理
+            annyang.addCallback('errorPermissionDenied', () => {
+                alert('请允许麦克风权限！');
+            });
+        } else {
+            alert('当前浏览器不支持语音功能，请使用最新版Chrome/Edge');
+        }
+    </script>
+
+    <style>
+        /* 简单样式优化 */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        #startBtn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            min-height: 60px;
+        }
+    </style>
+</body>
+</html>
