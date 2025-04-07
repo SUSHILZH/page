@@ -1,11 +1,129 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Page </title>
+    <title>科大讯飞语音识别测试</title>
 </head>
 <body>
-    <h1> 欢迎来到你的网站 </h1>
+    <button id="startBtn">开始录音</button>
+    <button id="stopBtn" disabled>停止</button>
+    <div id="result" style="margin-top: 20px;"></div>
+
+<script>
+// 配置参数（需要替换为你的凭证）
+const APP_ID = "3a971a65";
+const API_KEY = "352dca2e14be457296786a25e92516e8";
+const API_SECRET = "ZjQ0ODVmMjMxNjViYzVhNzljMmQwOTc2";
+
+// 生成WebSocket请求地址
+function getWebSocketUrl() {
+    const host = "wss://iat-api.xfyun.cn/v2/iat";
+    const date = new Date().toGMTString();
+    const algorithm = "hmac-sha256";
+    const headers = "host date request-line";
+    
+    // 生成签名
+    const signatureOrigin = `host: ${new URL(host).host}\ndate: ${date}\nGET /v2/iat HTTP/1.1`;
+    const signatureSha = CryptoJS.HmacSHA256(signatureOrigin, API_SECRET);
+    const signature = CryptoJS.enc.Base64.stringify(signatureSha);
+    
+    // 构造鉴权参数
+    const authorization = `api_key="${API_KEY}", algorithm="${algorithm}", headers="${headers}", signature="${signature}"`;
+    
+    return `${host}?authorization=${btoa(authorization)}&date=${btoa(date)}&host=${btoa(new URL(host).host)}`;
+}
+
+// 主要逻辑
+let recorder;
+let audioData = [];
+let websocket;
+
+document.getElementById("startBtn").addEventListener("click", async () => {
+    try {
+        // 获取麦克风权限
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // 初始化音频处理
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        
+        // 创建脚本处理器（用于获取原始PCM数据）
+        recorder = audioContext.createScriptProcessor(0, 1, 1);
+        source.connect(recorder);
+        recorder.connect(audioContext.destination);
+        
+        // 初始化WebSocket
+        websocket = new WebSocket(getWebSocketUrl());
+        
+        // 初始化状态
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("stopBtn").disabled = false;
+        document.getElementById("result").textContent = "识别中...";
+
+        // WebSocket事件处理
+        websocket.onopen = () => {
+            recorder.onaudioprocess = (e) => {
+                const audioBuffer = e.inputBuffer.getChannelData(0);
+                const int16Array = convertFloat32ToInt16(audioBuffer);
+                websocket.send(encodeFrame(int16Array));
+            };
+        };
+
+        websocket.onmessage = (e) => {
+            const res = JSON.parse(e.data);
+            if(res.data && res.data.result) {
+                const text = parseIatResult(res.data.result);
+                document.getElementById("result").textContent = text;
+            }
+        };
+
+    } catch (error) {
+        console.error("Error:", error);
+    }
+});
+
+// 停止录音
+document.getElementById("stopBtn").addEventListener("click", () => {
+    recorder.disconnect();
+    websocket.close();
+    document.getElementById("startBtn").disabled = false;
+    document.getElementById("stopBtn").disabled = true;
+});
+
+// 工具函数 ------------------------------------------------------
+// PCM格式转换
+function convertFloat32ToInt16(buffer) {
+    const int16Buffer = new Int16Array(buffer.length);
+    for (let i = 0; i < buffer.length; i++) {
+        int16Buffer[i] = buffer[i] * 0x7FFF;
+    }
+    return int16Buffer;
+}
+
+// 数据帧编码
+function encodeFrame(buffer) {
+    const frame = new Uint8Array(buffer.length * 2);
+    new DataView(frame.buffer).setInt16(0, buffer.length, true);
+    return frame;
+}
+
+// 解析识别结果
+function parseIatResult(result) {
+    let text = "";
+    try {
+        const ws = result.ws;
+        for(let i = 0; i < ws.length; i++) {
+            text += ws[i].cw[0].w;
+        }
+    } catch(e) {
+        console.error("解析错误:", e);
+    }
+    return text;
+}
+
+// 注意：需要引入CryptoJS库用于签名生成
+</script>
+<!-- 引入CryptoJS库 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </body>
 </html>
