@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>讯飞语音识别Demo</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <button id="startBtn">开始录音</button>
+    <div id="result"></div>
+
+    <script>
+        const APPID = '3a971a65';  // 替换为你的APPID
+        const API_KEY = '352dca2e14be457296786a25e92516e8';  // 替换为你的API_KEY
+        let recorder;
+        let audioData = [];
+        let isRecording = false;
+
+        // 初始化录音
+        async function initRecorder() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const audioContext = new AudioContext();
+            const source = audioContext.createMediaStreamSource(stream);
+            
+            recorder = audioContext.createScriptProcessor(0, 1, 1);
+            source.connect(recorder);
+            recorder.connect(audioContext.destination);
+
+            recorder.onaudioprocess = (e) => {
+                if (isRecording) {
+                    const input = e.inputBuffer.getChannelData(0);
+                    audioData.push(new Int16Array(input.map(v => v * 0x7FFF)));
+                }
+            };
+        }
+
+        // 创建WebSocket连接
+        function createWebSocket() {
+            const url = 'wss://iat-api.xfyun.cn/v2/iat';
+            const date = new Date().toGMTString();
+            const signatureOrigin = `host: iat-api.xfyun.cn\ndate: ${date}\nGET /v2/iat HTTP/1.1`;
+            const signatureSha = CryptoJS.HmacSHA256(signatureOrigin, API_KEY);
+            const signature = CryptoJS.enc.Base64.stringify(signatureSha);
+            
+            const authorization = `api_key="${API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+            
+            return new WebSocket(url + `?authorization=${encodeURIComponent(authorization)}&host=iat-api.xfyun.cn&date=${encodeURIComponent(date)}`);
+        }
+
+        // 开始/停止录音
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            if (!isRecording) {
+                isRecording = true;
+                document.getElementById('startBtn').textContent = '停止录音';
+                audioData = [];
+                await initRecorder();
+                
+                const ws = createWebSocket();
+                ws.onmessage = (e) => {
+                    const result = JSON.parse(e.data);
+                    if (result.data && result.data.result) {
+                        const text = result.data.result.ws.map(w => w.cw[0].w).join('');
+                        document.getElementById('result').innerHTML += text;
+                    }
+                };
+            } else {
+                isRecording = false;
+                document.getElementById('startBtn').textContent = '开始录音';
+                
+                // 拼接音频数据并发送
+                const data = new Blob(audioData, { type: 'audio/wav' });
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = btoa(new Uint8Array(reader.result).reduce(
+                        (data, byte) => data + String.fromCharCode(byte), ''
+                    ));
+                    ws.send(JSON.stringify({
+                        common: { app_id: APPID },
+                        business: {
+                            language: 'zh_cn',
+                            domain: 'iat',
+                            accent: 'mandarin'
+                        },
+                        data: {
+                            status: 2,
+                            format: 'audio/L16;rate=16000',
+                            encoding: 'raw',
+                            audio: base64
+                        }
+                    }));
+                };
+                reader.readAsArrayBuffer(data);
+            }
+        });
+    </script>
+    
+    <!-- 引入CryptoJS用于生成签名 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</body>
+</html>
